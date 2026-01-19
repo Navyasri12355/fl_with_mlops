@@ -11,7 +11,7 @@ from model1 import create_fl_vibration_cnn  # simple CNN
 # ---------------------------------------------------
 def load_m01_train():
 
-    root = os.path.join("new_train", "M03")
+    root = os.path.join("new_train", "M01")
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
 
@@ -30,6 +30,35 @@ def load_m01_train():
         pbar.update(1)
 
     # BAD samples
+    for f in bad_files:
+        with h5py.File(os.path.join(bad_path, f), "r") as hf:
+            X.append(hf["vibration_data"][:])
+            y.append(0)
+        pbar.update(1)
+
+    pbar.close()
+    return np.array(X, np.float32), np.array(y, np.int32)
+
+
+# Generic loader for a specific machine ID (ex: "M01") used by Prefect flows
+def load_train_for(machine_id: str):
+    root = os.path.join("new_train", machine_id)
+    good_path = os.path.join(root, "good")
+    bad_path = os.path.join(root, "bad")
+
+    X, y = [], []
+
+    good_files = os.listdir(good_path) if os.path.exists(good_path) else []
+    bad_files = os.listdir(bad_path) if os.path.exists(bad_path) else []
+
+    pbar = tqdm(total=len(good_files) + len(bad_files), desc=f"Loading {machine_id} Train")
+
+    for f in good_files:
+        with h5py.File(os.path.join(good_path, f), "r") as hf:
+            X.append(hf["vibration_data"][:])
+            y.append(1)
+        pbar.update(1)
+
     for f in bad_files:
         with h5py.File(os.path.join(bad_path, f), "r") as hf:
             X.append(hf["vibration_data"][:])
