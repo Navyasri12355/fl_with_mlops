@@ -584,7 +584,7 @@ def generate_distributed_fl_report(
 def distributed_fl_pipeline(
     experiment_name: str = "distributed_fl_experiment",
     num_rounds: int = 3,
-    timeout_minutes: int = 30,
+    timeout_minutes: int = 60,
     server_address: str = "127.0.0.1:8080"
 ) -> Dict[str, Any]:
     """
@@ -690,7 +690,7 @@ if __name__ == "__main__":
     result = distributed_fl_pipeline(
         experiment_name="test_distributed_fl",
         num_rounds=3,
-        timeout_minutes=15
+        timeout_minutes=60
     )
     
     print(f"Pipeline Status: {result['status']}")
