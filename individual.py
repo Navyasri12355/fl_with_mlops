@@ -9,34 +9,35 @@ from model1 import create_fl_vibration_cnn  # simple CNN
 # ---------------------------------------------------
 # LOAD M01 TRAINING DATA  (same as FL client)
 # ---------------------------------------------------
-def load_m01_train():
+from concurrent.futures import ThreadPoolExecutor
 
+def load_file(path, label):
+    with h5py.File(path, "r") as f:
+        return f["vibration_data"][:], label
+
+# ---------------------------------------------------
+# LOAD M01 TRAINING DATA  (same as FL client)
+# ---------------------------------------------------
+def load_m01_train():
     root = os.path.join("new_train", "M01")
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
 
+    good_files = [os.path.join(good_path, f) for f in os.listdir(good_path) if f.endswith(".h5")] if os.path.exists(good_path) else []
+    bad_files  = [os.path.join(bad_path, f) for f in os.listdir(bad_path) if f.endswith(".h5")] if os.path.exists(bad_path) else []
+    
+    all_files = [(f, 1) for f in good_files] + [(f, 0) for f in bad_files]
+
+    print(f"Loading {len(all_files)} files for M01 using threads...")
+    
     X, y = [], []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(load_file, f, l) for f, l in all_files]
+        for future in tqdm(futures, desc="Loading M01 Train", total=len(all_files)):
+            data, label = future.result()
+            X.append(data)
+            y.append(label)
 
-    good_files = os.listdir(good_path) if os.path.exists(good_path) else []
-    bad_files  = os.listdir(bad_path) if os.path.exists(bad_path) else []
-
-    pbar = tqdm(total=len(good_files) + len(bad_files), desc="Loading M01 Train")
-
-    # GOOD samples
-    for f in good_files:
-        with h5py.File(os.path.join(good_path, f), "r") as hf:
-            X.append(hf["vibration_data"][:])
-            y.append(1)
-        pbar.update(1)
-
-    # BAD samples
-    for f in bad_files:
-        with h5py.File(os.path.join(bad_path, f), "r") as hf:
-            X.append(hf["vibration_data"][:])
-            y.append(0)
-        pbar.update(1)
-
-    pbar.close()
     return np.array(X, np.float32), np.array(y, np.int32)
 
 
@@ -46,26 +47,19 @@ def load_train_for(machine_id: str):
     good_path = os.path.join(root, "good")
     bad_path = os.path.join(root, "bad")
 
+    good_files = [os.path.join(good_path, f) for f in os.listdir(good_path) if f.endswith(".h5")] if os.path.exists(good_path) else []
+    bad_files  = [os.path.join(bad_path, f) for f in os.listdir(bad_path) if f.endswith(".h5")] if os.path.exists(bad_path) else []
+    
+    all_files = [(f, 1) for f in good_files] + [(f, 0) for f in bad_files]
+
     X, y = [], []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(load_file, f, l) for f, l in all_files]
+        for future in tqdm(futures, desc=f"Loading {machine_id} Train", total=len(all_files)):
+            data, label = future.result()
+            X.append(data)
+            y.append(label)
 
-    good_files = os.listdir(good_path) if os.path.exists(good_path) else []
-    bad_files = os.listdir(bad_path) if os.path.exists(bad_path) else []
-
-    pbar = tqdm(total=len(good_files) + len(bad_files), desc=f"Loading {machine_id} Train")
-
-    for f in good_files:
-        with h5py.File(os.path.join(good_path, f), "r") as hf:
-            X.append(hf["vibration_data"][:])
-            y.append(1)
-        pbar.update(1)
-
-    for f in bad_files:
-        with h5py.File(os.path.join(bad_path, f), "r") as hf:
-            X.append(hf["vibration_data"][:])
-            y.append(0)
-        pbar.update(1)
-
-    pbar.close()
     return np.array(X, np.float32), np.array(y, np.int32)
 
 
@@ -74,33 +68,25 @@ def load_train_for(machine_id: str):
 # LOAD GLOBAL TEST DATA (same as FL validation)
 # ---------------------------------------------------
 def load_global_test():
-
     root = "new_test"
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
 
+    good_files = [os.path.join(good_path, f) for f in os.listdir(good_path) if f.endswith(".h5")] if os.path.exists(good_path) else []
+    bad_files  = [os.path.join(bad_path, f) for f in os.listdir(bad_path) if f.endswith(".h5")] if os.path.exists(bad_path) else []
+    
+    all_files = [(f, 1) for f in good_files] + [(f, 0) for f in bad_files]
+
+    print(f"Loading {len(all_files)} validation files using threads...")
+
     X, y = [], []
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(load_file, f, l) for f, l in all_files]
+        for future in tqdm(futures, desc="Loading Global Test", total=len(all_files)):
+            data, label = future.result()
+            X.append(data)
+            y.append(label)
 
-    good_files = os.listdir(good_path) if os.path.exists(good_path) else []
-    bad_files  = os.listdir(bad_path) if os.path.exists(bad_path) else []
-
-    pbar = tqdm(total=len(good_files) + len(bad_files), desc="Loading Global Test")
-
-    # GOOD samples
-    for f in good_files:
-        with h5py.File(os.path.join(good_path, f), "r") as hf:
-            X.append(hf["vibration_data"][:])
-            y.append(1)
-        pbar.update(1)
-
-    # BAD samples
-    for f in bad_files:
-        with h5py.File(os.path.join(bad_path, f), "r") as hf:
-            X.append(hf["vibration_data"][:])
-            y.append(0)
-        pbar.update(1)
-
-    pbar.close()
     return np.array(X, np.float32), np.array(y, np.int32)
 
 

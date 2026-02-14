@@ -36,6 +36,15 @@ if mlflow is not None:
 # ============================================================
 # LOAD TRAINING DATA (machine-specific)
 # ============================================================
+from concurrent.futures import ThreadPoolExecutor
+
+# ============================================================
+# LOAD TRAINING DATA (machine-specific)
+# ============================================================
+def load_file(path, label):
+    with h5py.File(path, "r") as f:
+        return f["vibration_data"][:], label
+
 def load_train_data(machine_id):
 
     root = os.path.join("new_train", machine_id)
@@ -46,26 +55,25 @@ def load_train_data(machine_id):
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
 
+    good_files = [os.path.join(good_path, f) for f in os.listdir(good_path) if f.endswith(".h5")]
+    bad_files  = [os.path.join(bad_path, f) for f in os.listdir(bad_path) if f.endswith(".h5")]
+    
+    all_files = [(f, 1) for f in good_files] + [(f, 0) for f in bad_files]
+    
+    print(f"Loading {len(all_files)} training files for {machine_id} using threads...")
+    
     X, y = [], []
-
-    good_files = [f for f in os.listdir(good_path) if f.endswith(".h5")]
-    bad_files  = [f for f in os.listdir(bad_path) if f.endswith(".h5")]
-
-    pbar = tqdm(total=len(good_files) + len(bad_files), desc=f"Train {machine_id}")
-
-    for file in good_files:
-        with h5py.File(os.path.join(good_path, file), "r") as f:
-            X.append(f["vibration_data"][:])
-            y.append(1)
-        pbar.update(1)
-
-    for file in bad_files:
-        with h5py.File(os.path.join(bad_path, file), "r") as f:
-            X.append(f["vibration_data"][:])
-            y.append(0)
-        pbar.update(1)
-
-    pbar.close()
+    
+    # Use threads to speed up I/O
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        # submit all tasks
+        futures = [executor.submit(load_file, f, l) for f, l in all_files]
+        
+        # process as they complete
+        for future in tqdm(futures, desc=f"Train {machine_id}", total=len(all_files)):
+            data, label = future.result()
+            X.append(data)
+            y.append(label)
 
     return np.stack(X).astype(np.float32), np.array(y, dtype=np.int32)
 
@@ -82,26 +90,22 @@ def load_global_val():
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
 
+    good_files = [os.path.join(good_path, f) for f in os.listdir(good_path) if f.endswith(".h5")]
+    bad_files  = [os.path.join(bad_path, f) for f in os.listdir(bad_path) if f.endswith(".h5")]
+    
+    all_files = [(f, 1) for f in good_files] + [(f, 0) for f in bad_files]
+
+    print(f"Loading {len(all_files)} validation files using threads...")
+
     X, y = [], []
 
-    good_files = [f for f in os.listdir(good_path) if f.endswith(".h5")]
-    bad_files  = [f for f in os.listdir(bad_path) if f.endswith(".h5")]
-
-    pbar = tqdm(total=len(good_files) + len(bad_files), desc="Global Validation")
-
-    for file in good_files:
-        with h5py.File(os.path.join(good_path, file), "r") as f:
-            X.append(f["vibration_data"][:])
-            y.append(1)
-        pbar.update(1)
-
-    for file in bad_files:
-        with h5py.File(os.path.join(bad_path, file), "r") as f:
-            X.append(f["vibration_data"][:])
-            y.append(0)
-        pbar.update(1)
-
-    pbar.close()
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(load_file, f, l) for f, l in all_files]
+        
+        for future in tqdm(futures, desc="Global Validation", total=len(all_files)):
+            data, label = future.result()
+            X.append(data)
+            y.append(label)
 
     return np.stack(X).astype(np.float32), np.array(y, dtype=np.int32)
 
