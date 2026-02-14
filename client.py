@@ -144,7 +144,7 @@ class CNCClient(fl.client.NumPyClient):
 
 
     # Flower API
-    def get_parameters(self):
+    def get_parameters(self, config):
         return self.model.get_weights()
 
     def set_parameters(self, params):
@@ -273,7 +273,7 @@ class CNCClient(fl.client.NumPyClient):
 # ============================================================
 if __name__ == "__main__":
     client_number = int(sys.argv[1])
-    fl.client.start_numpy_client(
+    fl.client.start_client(
         server_address="127.0.0.1:8080",
-        client=CNCClient(client_number)
+        client=CNCClient(client_number).to_client()
     )
