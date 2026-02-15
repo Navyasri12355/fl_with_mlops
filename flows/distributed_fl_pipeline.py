@@ -168,12 +168,16 @@ def start_flower_server(
         
         logger.info(f"Starting Flower server with {num_rounds} rounds, {min_clients} min clients")
         
+        # Ensure log directory exists
+        os.makedirs("pipeline_logs", exist_ok=True)
+        server_log = open(os.path.join("pipeline_logs", "server.log"), "w")
+        
         # Start server process
         server_process = subprocess.Popen(
             server_cmd,
             env=server_env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=server_log,
+            stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
             universal_newlines=True
@@ -232,12 +236,22 @@ def start_flower_client(
         
         logger.info(f"Starting client M0{client_id}")
         
+        # Ensure log directory exists and create client-specific log file
+        os.makedirs("pipeline_logs", exist_ok=True)
+        client_log = open(os.path.join("pipeline_logs", f"M0{client_id}.log"), "w")
+        
+        # Set environment variables for the client
+        client_env = os.environ.copy()
+        client_env["MLFLOW_EXPERIMENT"] = experiment_name
+        client_env["FL_SERVER_ADDRESS"] = server_address
+        client_env["FL_PIPELINE_MODE"] = "True"
+        
         # Start client process
         client_process = subprocess.Popen(
             client_cmd,
             env=client_env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=client_log,
+            stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
             universal_newlines=True
@@ -265,7 +279,7 @@ def start_flower_client(
 def monitor_distributed_training(
     server_info: Dict[str, Any],
     client_infos: List[Dict[str, Any]],
-    timeout_minutes: int = 30
+    timeout_minutes: int = 60
 ) -> Dict[str, Any]:
     """Monitor the distributed training process"""
     logger = get_run_logger()
@@ -289,23 +303,14 @@ def monitor_distributed_training(
         while time.time() - start_time < timeout_seconds:
             # Check server status
             if server_process.poll() is not None:
-                # Server finished
-                stdout, stderr = server_process.communicate()
-                training_logs["server_output"].append(stdout)
-                if stderr:
-                    training_logs["server_output"].append(f"STDERR: {stderr}")
-                
                 logger.info("Flower server completed")
                 break
             
-            # Check if any client failed
-            for i, (client_process, client_info) in enumerate(zip(client_processes, client_infos)):
-                if client_process.poll() is not None:
-                    stdout, stderr = client_process.communicate()
-                    machine_id = client_info["machine_id"]
-                    training_logs["client_outputs"][machine_id].append(stdout)
-                    if stderr:
-                        training_logs["client_outputs"][machine_id].append(f"STDERR: {stderr}")
+            # Check if all clients finished early (unlikely but possible)
+            all_clients_done = all(cp.poll() is not None for cp in client_processes)
+            if all_clients_done:
+                logger.info("All clients completed")
+                break
             
             time.sleep(5)  # Check every 5 seconds
         

@@ -7,6 +7,18 @@ import tensorflow as tf
 from tqdm import tqdm
 
 from model1 import create_fl_vibration_cnn  # simple CNN only
+from concurrent.futures import ThreadPoolExecutor
+
+# Reduce TensorFlow logging verbosity
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+
+# Disable tqdm if running in pipeline mode
+IS_PIPELINE = os.environ.get("FL_PIPELINE_MODE", "False") == "True"
+if IS_PIPELINE:
+    def silent_tqdm(iterable, *args, **kwargs):
+        return iterable
+else:
+    silent_tqdm = tqdm
 
 # Optional MLflow (guarded import)
 try:
@@ -46,6 +58,14 @@ def load_file(path, label):
         return f["vibration_data"][:], label
 
 def load_train_data(machine_id):
+    # Check for consolidated file first
+    consolidated_path = os.path.join("data_consolidated", f"{machine_id}_consolidated.h5")
+    if os.path.exists(consolidated_path):
+        print(f"Loading consolidated training data for {machine_id} from {consolidated_path}...")
+        with h5py.File(consolidated_path, 'r') as f:
+            X = f['vibration_data'][:]
+            y = f['label'][:]
+            return X.astype(np.float32), y.astype(np.int32)
 
     root = os.path.join("new_train", machine_id)
 
@@ -70,7 +90,7 @@ def load_train_data(machine_id):
         futures = [executor.submit(load_file, f, l) for f, l in all_files]
         
         # process as they complete
-        for future in tqdm(futures, desc=f"Train {machine_id}", total=len(all_files)):
+        for future in silent_tqdm(futures, desc=f"Train {machine_id}", total=len(all_files)):
             data, label = future.result()
             X.append(data)
             y.append(label)
@@ -84,6 +104,14 @@ def load_train_data(machine_id):
 # LOAD GLOBAL VALIDATION DATA (shared across all clients)
 # ============================================================
 def load_global_val():
+    # Check for consolidated file first
+    consolidated_path = os.path.join("data_consolidated", "test_consolidated.h5")
+    if os.path.exists(consolidated_path):
+        print(f"Loading consolidated global validation data from {consolidated_path}...")
+        with h5py.File(consolidated_path, 'r') as f:
+            X = f['vibration_data'][:]
+            y = f['label'][:]
+            return X.astype(np.float32), y.astype(np.int32)
 
     root = "new_test"
 
@@ -102,7 +130,7 @@ def load_global_val():
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(load_file, f, l) for f, l in all_files]
         
-        for future in tqdm(futures, desc="Global Validation", total=len(all_files)):
+        for future in silent_tqdm(futures, desc="Global Validation", total=len(all_files)):
             data, label = future.result()
             X.append(data)
             y.append(label)
@@ -189,7 +217,7 @@ class CNCClient(fl.client.NumPyClient):
             self.y_train,
             epochs=3,
             batch_size=32,
-            verbose=1
+            verbose=0
         )
 
         # Evaluate local model on same validation set (post-training)

@@ -19,6 +19,14 @@ def load_file(path, label):
 # LOAD M01 TRAINING DATA  (same as FL client)
 # ---------------------------------------------------
 def load_m01_train():
+    consolidated_path = os.path.join("data_consolidated", "M01_consolidated.h5")
+    if os.path.exists(consolidated_path):
+        print(f"Loading consolidated training data for M01 from {consolidated_path}...")
+        with h5py.File(consolidated_path, 'r') as f:
+            X = f['vibration_data'][:]
+            y = f['label'][:]
+            return X.astype(np.float32), y.astype(np.int32)
+
     root = os.path.join("new_train", "M01")
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
@@ -43,6 +51,14 @@ def load_m01_train():
 
 # Generic loader for a specific machine ID (ex: "M01") used by Prefect flows
 def load_train_for(machine_id: str):
+    consolidated_path = os.path.join("data_consolidated", f"{machine_id}_consolidated.h5")
+    if os.path.exists(consolidated_path):
+        print(f"Loading consolidated training data for {machine_id} from {consolidated_path}...")
+        with h5py.File(consolidated_path, 'r') as f:
+            X = f['vibration_data'][:]
+            y = f['label'][:]
+            return X.astype(np.float32), y.astype(np.int32)
+
     root = os.path.join("new_train", machine_id)
     good_path = os.path.join(root, "good")
     bad_path = os.path.join(root, "bad")
@@ -68,6 +84,14 @@ def load_train_for(machine_id: str):
 # LOAD GLOBAL TEST DATA (same as FL validation)
 # ---------------------------------------------------
 def load_global_test():
+    consolidated_path = os.path.join("data_consolidated", "test_consolidated.h5")
+    if os.path.exists(consolidated_path):
+        print(f"Loading consolidated global test data from {consolidated_path}...")
+        with h5py.File(consolidated_path, 'r') as f:
+            X = f['vibration_data'][:]
+            y = f['label'][:]
+            return X.astype(np.float32), y.astype(np.int32)
+
     root = "new_test"
     good_path = os.path.join(root, "good")
     bad_path  = os.path.join(root, "bad")
