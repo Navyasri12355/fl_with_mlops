@@ -67,13 +67,35 @@ if __name__ == "__main__":
     initial_weights = get_initial_parameters()
     initial_parameters = fl.common.ndarrays_to_parameters(initial_weights)
 
+    # Custom strategy to save weights
+    class CNCStrategy(fl.server.strategy.FedAvg):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.latest_weights = None
+
+        def aggregate_fit(self, server_round, results, failures):
+            weights, metrics = super().aggregate_fit(server_round, results, failures)
+            if weights is not None:
+                self.latest_weights = fl.common.parameters_to_ndarrays(weights)
+                print(f"Round {server_round} aggregation successful")
+            return weights, metrics
+
+        def save_model_weights(self, filename="final_model_weights.h5"):
+            if self.latest_weights is not None:
+                temp_model = create_fl_vibration_cnn()
+                # Build model
+                temp_model.predict(np.zeros((1, 1024, 3)), verbose=0)
+                temp_model.set_weights(self.latest_weights)
+                temp_model.save_weights(filename)
+                print(f"Server weights saved to {filename}")
+
     # FedAvg Strategy
-    strategy = fl.server.strategy.FedAvg(
-        fraction_fit=1.0,             # use ALL clients every round
-        fraction_evaluate=1.0,        # ask ALL clients to evaluate
-        min_fit_clients=min_clients,  # require min_clients for training round
-        min_evaluate_clients=min_clients,  # require min_clients for validation
-        min_available_clients=min_clients,  # require min_clients connected clients
+    strategy = CNCStrategy(
+        fraction_fit=1.0,
+        fraction_evaluate=1.0,
+        min_fit_clients=min_clients,
+        min_evaluate_clients=min_clients,
+        min_available_clients=min_clients,
         initial_parameters=initial_parameters,
     )
 
@@ -82,3 +104,8 @@ if __name__ == "__main__":
         strategy=strategy,
         config=fl.server.ServerConfig(num_rounds=num_rounds),
     )
+
+    # Save final weights
+    print("\n[SERVER] Run finished!")
+    strategy.save_model_weights("final_model_weights.weights.h5")
+

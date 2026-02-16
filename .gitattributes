@@ -1,0 +1,4 @@
+data_consolidated/M01_consolidated.h5 filter=lfs diff=lfs merge=lfs -text
+data_consolidated/M02_consolidated.h5 filter=lfs diff=lfs merge=lfs -text
+data_consolidated/M03_consolidated.h5 filter=lfs diff=lfs merge=lfs -text
+data_consolidated/test_consolidated.h5 filter=lfs diff=lfs merge=lfs -text

@@ -176,7 +176,7 @@ class CNCClient(fl.client.NumPyClient):
 
 
     # Flower API
-    def get_parameters(self, config):
+    def get_parameters(self, config=None):
         return self.model.get_weights()
 
     def set_parameters(self, params):
@@ -233,15 +233,15 @@ class CNCClient(fl.client.NumPyClient):
                 local_better = 1 if l_acc > g_acc else 0
                 self.mlflow.log_metric("local_better", local_better, step=round_id)
 
-                # Log the Keras model as an artifact
+                # Log the Keras model weights as an artifact (more reliable than log_model)
                 try:
-                    self.mlflow.keras.log_model(self.model, artifact_path=f"local_model_{self.machine_id}_round_{round_id}")
+                    weights_filename = f"local_model_{self.machine_id}_round_{round_id}.weights.h5"
+                    self.model.save_weights(weights_filename)
+                    self.mlflow.log_artifact(weights_filename)
+                    os.remove(weights_filename)
+                    print(f"      {self.machine_id}: Logged model weights to MLflow.")
                 except Exception as exc:
-                    # Fallback: save weights and log as artifact
-                    weights_path = f"{self.machine_id}_round_{round_id}.weights.h5"
-                    self.model.save_weights(weights_path)
-                    self.mlflow.log_artifact(weights_path)
-                    os.remove(weights_path)
+                    print(f"      WARNING: {self.machine_id}: Failed to log weights: {exc}")
 
                 # Save a simple report artifact
                 report_path = f"client_{self.machine_id}_round_{round_id}_report.txt"

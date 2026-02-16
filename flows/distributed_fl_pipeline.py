@@ -15,6 +15,7 @@ import signal
 import json
 import tempfile
 import csv
+import shutil
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from pathlib import Path
@@ -464,6 +465,78 @@ def collect_mlflow_results(experiment_name: str) -> Dict[str, Any]:
 
 
 @task
+def select_and_save_best_model(mlflow_results: Dict[str, Any], experiment_name: str):
+    """Select the best performing model and save it to best_model/ directory"""
+    logger = get_run_logger()
+    
+    if mlflow_results["status"] != "success":
+        logger.warning("MLflow results not available for best model selection")
+        return
+        
+    analysis = mlflow_results["analysis"]
+    client_performance = analysis.get("client_performance", {})
+    
+    best_acc = -1.0
+    best_model_name = "none"
+    best_run_id = None
+    
+    # Check global model (using avg global accuracy as representative)
+    global_acc = analysis["overall_summary"]["avg_final_global_accuracy"]
+    if global_acc > best_acc:
+        best_acc = global_acc
+        best_model_name = "global_model"
+        
+    # Check each client local performance
+    for client, perf in client_performance.items():
+        if perf["final_local_accuracy"] > best_acc:
+            best_acc = perf["final_local_accuracy"]
+            best_model_name = f"local_model_{client}"
+            # Find the run ID for the latest round for this client
+            # The client_runs dict in mlflow_results contains IDs
+            # But simpler is to find it via client search
+            
+    logger.info(f"Best model identified: {best_model_name} with accuracy {best_acc:.4f}")
+    
+    # Setup directory
+    Path("best_model").mkdir(exist_ok=True)
+    
+    if best_model_name == "global_model":
+        src = "final_model_weights.weights.h5"
+        if os.path.exists(src):
+            shutil.copy(src, os.path.join("best_model", "best_model.weights.h5"))
+            logger.info("Saved global model as best_model.weights.h5")
+    else:
+        # It's a local model. We need to find its artifact in MLflow.
+        client = mlflow.tracking.MlflowClient()
+        exp = client.get_experiment_by_name(experiment_name)
+        machine_id = best_model_name.replace("local_model_", "")
+        
+        query = f"params.client = '{machine_id}'"
+        runs = client.search_runs(
+            experiment_ids=[exp.experiment_id],
+            filter_string=query,
+            order_by=["start_time DESC"]
+        )
+        
+        # Filter for runs that have 'round' parameter in Python
+        valid_runs = [r for r in runs if "round" in r.data.params]
+        
+        if valid_runs:
+            run_id = valid_runs[0].info.run_id
+            artifacts = client.list_artifacts(run_id)
+            # Find the .weights.h5 file
+            weights_art = next((a.path for a in artifacts if a.path.endswith(".weights.h5")), None)
+            if weights_art:
+                local_path = client.download_artifacts(run_id, weights_art, "best_model")
+                # Rename to best_model.weights.h5
+                target = os.path.join("best_model", "best_model.weights.h5")
+                if os.path.exists(target):
+                    os.remove(target)
+                os.rename(local_path, target)
+                logger.info(f"Saved local model from client {machine_id} as best_model.weights.h5")
+
+
+@task
 def generate_distributed_fl_report(
     mlflow_results: Dict[str, Any],
     experiment_name: str,
@@ -557,12 +630,16 @@ def generate_distributed_fl_report(
     )
     
     # Save report to file
-    report_path = f"distributed_fl_report_{experiment_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    Path("reports").mkdir(exist_ok=True)
+    report_filename = f"distributed_fl_report_{experiment_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    report_path = os.path.join("reports", report_filename)
     with open(report_path, 'w', encoding='utf-8') as f:
         f.write(report_content)
     
     # Log report as MLflow artifact
     try:
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+        mlflow.set_tracking_uri(tracking_uri)
         mlflow.set_experiment(experiment_name)
         with mlflow.start_run(run_name="distributed_fl_summary"):
             mlflow.log_artifact(report_path, "reports")
@@ -574,6 +651,24 @@ def generate_distributed_fl_report(
                 "clients_prefer_local": overall['clients_prefer_local'],
                 "total_clients": len(analysis["client_performance"])
             })
+            
+            # Log per-machine metrics across all rounds for graphing
+            client_runs = mlflow_results.get("client_runs", {})
+            for mid, runs_info in client_runs.items():
+                for run_data in runs_info:
+                    round_num_str = run_data.get("round", "0")
+                    try:
+                        round_num = int(round_num_str)
+                    except (ValueError, TypeError):
+                        round_num = 0
+                    
+                    local_acc = float(run_data.get("local_accuracy", 0))
+                    global_acc = float(run_data.get("global_accuracy", 0))
+                    
+                    if round_num > 0:
+                        mlflow.log_metric(f"{mid}_local_accuracy", local_acc, step=round_num)
+                        mlflow.log_metric(f"{mid}_global_accuracy", global_acc, step=round_num)
+
     except Exception as e:
         logger.warning(f"Failed to log report to MLflow: {e}")
     
@@ -668,6 +763,10 @@ def distributed_fl_pipeline(
         training_logs=training_logs
     )
     
+    # Phase 6: Best Model Selection
+    logger.info("Phase 6: Selecting and saving best model")
+    select_and_save_best_model(mlflow_results, experiment_name)
+    
     # Compile final results
     final_results = {
         "experiment_name": experiment_name,
@@ -691,16 +790,26 @@ def distributed_fl_pipeline(
 
 
 if __name__ == "__main__":
-    # Example usage
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment_name", type=str, default="test_distributed_fl")
+    parser.add_argument("--num_rounds", type=int, default=3)
+    parser.add_argument("--timeout_minutes", type=int, default=60)
+    parser.add_argument("--server_address", type=str, default="127.0.0.1:8080")
+    args = parser.parse_args()
+
+    # Pass args to the pipeline
     result = distributed_fl_pipeline(
-        experiment_name="test_distributed_fl",
-        num_rounds=3,
-        timeout_minutes=60
+        experiment_name=args.experiment_name,
+        num_rounds=args.num_rounds,
+        timeout_minutes=args.timeout_minutes,
+        server_address=args.server_address
     )
     
     print(f"Pipeline Status: {result['status']}")
-    if result['mlflow_results']['status'] == 'success':
+    if result.get('mlflow_results', {}).get('status') == 'success':
         analysis = result['mlflow_results']['analysis']
-        print(f"Average Global Accuracy: {analysis['overall_summary']['avg_final_global_accuracy']:.4f}")
-        print(f"Average Local Accuracy: {analysis['overall_summary']['avg_final_local_accuracy']:.4f}")
-        print(f"Clients Preferring Local: {analysis['overall_summary']['clients_prefer_local']}/3")
+        if 'overall_summary' in analysis:
+            print(f"Average Global Accuracy: {analysis['overall_summary']['avg_final_global_accuracy']:.4f}")
+            print(f"Average Local Accuracy: {analysis['overall_summary']['avg_final_local_accuracy']:.4f}")
+            print(f"Clients Preferring Local: {analysis['overall_summary']['clients_prefer_local']}/3")
