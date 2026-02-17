@@ -7,3 +7,5 @@ reports/
 best_model/
 pipeline_logs/
 /*.txt
+node_modules/
+/*.log

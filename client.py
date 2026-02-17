@@ -173,6 +173,9 @@ class CNCClient(fl.client.NumPyClient):
                 self.mlflow.set_experiment(MLFLOW_EXPERIMENT)
             except Exception:
                 pass
+        
+        # Ensure reports directory exists
+        os.makedirs("reports", exist_ok=True)
 
 
     # Flower API
@@ -205,9 +208,10 @@ class CNCClient(fl.client.NumPyClient):
                 self.mlflow.log_metric("global_accuracy", float(g_acc), step=round_id)
 
                 # Log produced artifact: save a small file with pre-train metrics
-                with open(f"client_{self.machine_id}_round_{round_id}_pre_metrics.txt", "w") as fh:
+                pre_metrics_path = os.path.join("reports", f"client_{self.machine_id}_round_{round_id}_pre_metrics.txt")
+                with open(pre_metrics_path, "w") as fh:
                     fh.write(f"global_loss={g_loss}\nglobal_accuracy={g_acc}\n")
-                self.mlflow.log_artifact(f"client_{self.machine_id}_round_{round_id}_pre_metrics.txt")
+                self.mlflow.log_artifact(pre_metrics_path)
             except Exception as exc:
                 print("WARNING: MLflow logging (pre-train) failed:", exc)
 
@@ -244,7 +248,7 @@ class CNCClient(fl.client.NumPyClient):
                     print(f"      WARNING: {self.machine_id}: Failed to log weights: {exc}")
 
                 # Save a simple report artifact
-                report_path = f"client_{self.machine_id}_round_{round_id}_report.txt"
+                report_path = os.path.join("reports", f"client_{self.machine_id}_round_{round_id}_report.txt")
                 with open(report_path, "w") as fh:
                     fh.write(f"global_accuracy={g_acc}\nlocal_accuracy={l_acc}\nlocal_better={local_better}\n")
                 self.mlflow.log_artifact(report_path)
@@ -284,7 +288,7 @@ class CNCClient(fl.client.NumPyClient):
                 self.mlflow.log_metric("global_eval_accuracy", float(acc), step=eval_id)
 
                 # Save small artifact
-                path = f"client_{self.machine_id}_eval_{eval_id}.txt"
+                path = os.path.join("reports", f"client_{self.machine_id}_eval_{eval_id}.txt")
                 with open(path, "w") as fh:
                     fh.write(f"global_eval_loss={loss}\nglobal_eval_accuracy={acc}\n")
                 self.mlflow.log_artifact(path)
