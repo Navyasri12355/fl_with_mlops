@@ -1,11 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Cpu, Play, Square, ExternalLink, Activity, Database, Clock } from 'lucide-react';
 import { useStatus } from '../context/StatusContext';
+import { supabase } from '../supabase';
+import { useAuth } from '../context/AuthContext';
 
 const Prefect = () => {
     const { status: globalStatus, refreshStatus } = useStatus();
+    const { user } = useAuth();
     const status = globalStatus.prefect;
+    const [metrics, setMetrics] = useState({
+        runsToday: 0,
+        successRate: 0,
+        avgDuration: '0s'
+    });
+
+    const fetchMetrics = async () => {
+        if (!user) return;
+
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        // Runs today
+        const { count: runsToday } = await supabase
+            .from('runs')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .gte('timestamp', startOfDay.toISOString());
+
+        // Overall stats
+        const { data: allRuns } = await supabase
+            .from('runs')
+            .select('accuracy, duration')
+            .eq('user_id', user.id);
+
+        if (allRuns && allRuns.length > 0) {
+            const successCount = allRuns.filter(r => r.accuracy > 0).length;
+            const successRate = (successCount / allRuns.length) * 100;
+
+            // Just a placeholder for avg duration since it's a string in our mock/example
+            setMetrics({
+                runsToday: runsToday || 0,
+                successRate: successRate.toFixed(0),
+                avgDuration: '4m 12s'
+            });
+        }
+    };
+
+    useEffect(() => {
+        fetchMetrics();
+    }, [user]);
 
     const startServer = async () => {
         try {
@@ -104,11 +148,11 @@ const Prefect = () => {
                     <ul style={{ listStyle: 'none', color: 'var(--text-muted)' }}>
                         {['distributed_fl_pipeline', 'data_consolidation_flow', 'model_evaluation_flow'].map((flow, i) => (
                             <li key={flow} style={{
+                                borderBottom: i < 2 ? '1px solid var(--glass-border)' : 'none',
+                                padding: '0.75rem 0',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.75rem 0',
-                                borderBottom: i < 2 ? '1px solid var(--glass-border)' : 'none'
+                                gap: '0.5rem'
                             }}>
                                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--primary)' }}></div>
                                 {flow}
@@ -125,15 +169,15 @@ const Prefect = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--text-muted)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>Runs Today</span>
-                            <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>12</span>
+                            <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{metrics.runsToday}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>Success Rate</span>
-                            <span style={{ color: 'var(--success)', fontWeight: '600' }}>100%</span>
+                            <span style={{ color: 'var(--success)', fontWeight: '600' }}>{metrics.successRate}%</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span>Avg Duration</span>
-                            <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>4m 32s</span>
+                            <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{metrics.avgDuration}</span>
                         </div>
                     </div>
                 </motion.div>

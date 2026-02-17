@@ -87,6 +87,50 @@ async def stop_service(name: str):
             return {"status": "error", "message": str(e)}
     return {"status": "not running"}
 
+@app.get("/latest-result")
+async def get_latest_result():
+    reports_dir = "reports"
+    if not os.path.exists(reports_dir):
+        return {"error": "No reports directory"}
+    
+    reports = [f for f in os.listdir(reports_dir) if f.endswith(".md")]
+    if not reports:
+        return {"error": "No reports found"}
+    
+    # Sort by modification time to get the latest
+    latest_report = max([os.path.join(reports_dir, f) for f in reports], key=os.path.getmtime)
+    
+    try:
+        with open(latest_report, "r") as f:
+            content = f.read()
+            
+        import re
+        # Much more robust regex: match the label, then skip anything until we find the colon and number
+        accuracy_match = re.search(r"(?:Average Final Global Accuracy|Best Accuracy).*?[:\s]+([\d\.]+)", content, re.IGNORECASE)
+        rounds_match = re.search(r"Rounds Completed.*?[:\s]+(\d+)", content, re.IGNORECASE)
+        
+        accuracy = 0
+        if accuracy_match:
+            val = float(accuracy_match.group(1))
+            accuracy = val * 100 if val <= 1.0 else val
+            print(f"Parsed Accuracy: {accuracy}% from {accuracy_match.group(1)}")
+        else:
+            print("Failed to parse accuracy from report")
+            
+        rounds = int(rounds_match.group(1)) if rounds_match else 0
+        if rounds_match:
+            print(f"Parsed Rounds: {rounds}")
+        else:
+            print("Failed to parse rounds from report")
+        
+        return {
+            "accuracy": accuracy,
+            "rounds": rounds,
+            "filename": os.path.basename(latest_report)
+        }
+    except Exception as e:
+        return {"error": f"Failed to parse report: {e}"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

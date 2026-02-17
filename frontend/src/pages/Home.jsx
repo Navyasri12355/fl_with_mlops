@@ -1,13 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Info, ShieldCheck, Activity, ChevronRight, Share2, Cpu } from 'lucide-react';
 import ArchitectureDiagram from '../components/ArchitectureDiagram';
 import { useStatus } from '../context/StatusContext';
+import { supabase } from '../supabase';
+import { useAuth } from '../context/AuthContext';
+
+const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+        y: 0,
+        opacity: 1,
+        transition: { duration: 0.5, ease: 'easeOut' }
+    }
+};
 
 const Home = () => {
     const { status: globalStatus, refreshStatus } = useStatus();
+    const { user } = useAuth();
     const status = globalStatus.pipeline;
     const [showArch, setShowArch] = useState(false);
+    const [bestAccuracy, setBestAccuracy] = useState(null);
+
+    const fetchBestAccuracy = async () => {
+        if (!user) return;
+        const { data, error } = await supabase
+            .from('runs')
+            .select('accuracy')
+            .eq('user_id', user.id)
+            .order('accuracy', { ascending: false })
+            .limit(1);
+
+        if (data && data.length > 0) {
+            setBestAccuracy(data[0].accuracy);
+        }
+    };
+
+    useEffect(() => {
+        fetchBestAccuracy();
+    }, [user]);
 
     const runPipeline = async () => {
         try {
@@ -35,9 +66,41 @@ const Home = () => {
         }
     };
 
-    const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        visible: { y: 0, opacity: 1 }
+
+    const [lastStatus, setLastStatus] = useState(status);
+
+    useEffect(() => {
+        // Detect pipeline completion
+        if (lastStatus === 'running' && status === 'idle') {
+            handlePipelineCompletion();
+        }
+        setLastStatus(status);
+    }, [status]);
+
+    const handlePipelineCompletion = async () => {
+        console.log("Pipeline completion detected, fetching results...");
+        try {
+            const res = await fetch('http://localhost:8000/latest-result');
+            const data = await res.json();
+            console.log("Latest result data:", data);
+
+            if (data && !data.error && user) {
+                console.log("Recording run results to Supabase...");
+                const { error: insertError } = await supabase.from('runs').insert({
+                    user_id: user.id,
+                    accuracy: data.accuracy,
+                    round_count: data.rounds,
+                    duration: '4 rounds' // Placeholder
+                });
+                if (insertError) console.error("Supabase insert error:", insertError);
+
+                fetchBestAccuracy();
+            } else {
+                console.warn("Pipeline completed but no valid data found or user not logged in", data);
+            }
+        } catch (e) {
+            console.error("Failed to record completion:", e);
+        }
     };
 
     return (
@@ -118,8 +181,20 @@ const Home = () => {
                 </motion.div>
 
                 <motion.div variants={itemVariants} className="premium-card">
-                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '12px', color: 'var(--success)', marginBottom: '1.5rem', width: 'fit-content' }}>
-                        <ShieldCheck size={24} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                        <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '12px', color: 'var(--success)', width: 'fit-content' }}>
+                            <ShieldCheck size={24} />
+                        </div>
+                        <button
+                            onClick={() => {
+                                handlePipelineCompletion();
+                                fetchBestAccuracy();
+                            }}
+                            className="btn-primary"
+                            style={{ padding: '6px 12px', fontSize: '0.75rem', background: 'var(--glass)', border: '1px solid var(--glass-border)', boxShadow: 'none' }}
+                        >
+                            Refresh
+                        </button>
                     </div>
                     <h2 style={{ fontSize: '1.5rem' }}>Best Model</h2>
                     <p style={{ marginTop: '0.5rem', minHeight: '3rem' }}>
@@ -128,10 +203,17 @@ const Home = () => {
                     <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--glass)', borderRadius: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                             <span>Global Accuracy</span>
-                            <span style={{ color: 'var(--success)', fontWeight: '700' }}>92.4%</span>
+                            <span style={{ color: 'var(--success)', fontWeight: '700' }}>
+                                {bestAccuracy ? `${bestAccuracy.toFixed(1)}%` : 'N/A'}
+                            </span>
                         </div>
                         <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', marginTop: '0.5rem', overflow: 'hidden' }}>
-                            <motion.div initial={{ width: 0 }} animate={{ width: '92.4%' }} transition={{ duration: 1.5, ease: 'easeOut' }} style={{ height: '100%', background: 'var(--success)' }}></motion.div>
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: bestAccuracy ? `${bestAccuracy}%` : '0%' }}
+                                transition={{ duration: 1.5, ease: 'easeOut' }}
+                                style={{ height: '100%', background: 'var(--success)' }}
+                            ></motion.div>
                         </div>
                     </div>
                 </motion.div>
