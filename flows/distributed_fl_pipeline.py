@@ -795,8 +795,8 @@ def distributed_fl_pipeline(
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment_name", type=str, default="test_distributed_fl")
-    parser.add_argument("--num_rounds", type=int, default=3)
+    parser.add_argument("--experiment_name", type=str, default="improved_distributed_fl")
+    parser.add_argument("--num_rounds", type=int, default=10)
     parser.add_argument("--timeout_minutes", type=int, default=60)
     parser.add_argument("--server_address", type=str, default="127.0.0.1:8080")
     args = parser.parse_args()
