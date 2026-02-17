@@ -215,7 +215,7 @@ class CNCClient(fl.client.NumPyClient):
         self.model.fit(
             self.X_train,
             self.y_train,
-            epochs=3,
+            epochs=1,
             batch_size=32,
             verbose=0
         )

@@ -26,19 +26,27 @@ def create_fl_vibration_cnn(input_shape=(1024, 3)):
     inp = layers.Input(shape=input_shape, name="vibration")
 
     # Conv block 1
-    x = layers.Conv1D(f1, kernel_size=5, padding="same", activation="relu")(inp)
+    x = layers.Conv1D(f1, kernel_size=5, padding="same")(inp)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
     x = layers.MaxPooling1D(pool_size=2)(x)
 
     # Conv block 2
-    x = layers.Conv1D(f2, kernel_size=5, padding="same", activation="relu")(x)
+    x = layers.Conv1D(f2, kernel_size=5, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
     x = layers.MaxPooling1D(pool_size=2)(x)
 
     # Conv block 3
-    x = layers.Conv1D(f3, kernel_size=3, padding="same", activation="relu")(x)
+    x = layers.Conv1D(f3, kernel_size=3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
     x = layers.GlobalAveragePooling1D()(x)
 
     # Dense layers
-    x = layers.Dense(dense_units, activation="relu")(x)
+    x = layers.Dense(dense_units)(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Activation("relu")(x)
     x = layers.Dropout(dropout_rate)(x)
 
     # Output layer

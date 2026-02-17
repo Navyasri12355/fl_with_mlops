@@ -164,6 +164,9 @@ def start_flower_server(
         if "MLFLOW_TRACKING_URI" not in server_env:
             server_env["MLFLOW_TRACKING_URI"] = "sqlite:///mlflow.db"
         
+        # Increase SQLite timeout for Prefect server
+        server_env["PREFECT_SERVER_DATABASE_CONNECTION_TIMEOUT"] = "60.0"
+        
         logger.info(f"Server environment: MLFLOW_EXPERIMENT={server_env['MLFLOW_EXPERIMENT']}")
         logger.info(f"Server environment: MLFLOW_TRACKING_URI={server_env['MLFLOW_TRACKING_URI']}")
         
@@ -683,7 +686,7 @@ def generate_distributed_fl_report(
 )
 def distributed_fl_pipeline(
     experiment_name: str = "distributed_fl_experiment",
-    num_rounds: int = 3,
+    num_rounds: int = 10,
     timeout_minutes: int = 60,
     server_address: str = "127.0.0.1:8080"
 ) -> Dict[str, Any]:
