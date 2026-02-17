@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Layout, Server, Database, Activity, GitBranch, Cpu } from 'lucide-react';
+import { Layout, Server, Network, RefreshCw, BarChart2, Cpu } from 'lucide-react';
 
 const ArchitectureDiagram = () => {
     const [hoveredNode, setHoveredNode] = useState(null);
@@ -32,7 +32,7 @@ const ArchitectureDiagram = () => {
         },
         {
             id: 'prefect',
-            icon: <Database size={24} />,
+            icon: <Network size={24} />,
             label: 'Prefect',
             desc: 'Workflow & Task Scheduling',
             pos: { x: 88, y: 20 },
@@ -40,7 +40,7 @@ const ArchitectureDiagram = () => {
         },
         {
             id: 'flower',
-            icon: <Activity size={24} />,
+            icon: <RefreshCw size={24} />,
             label: 'Flower Server',
             desc: 'Federated Model Aggregation',
             pos: { x: 88, y: 50 },
@@ -48,7 +48,7 @@ const ArchitectureDiagram = () => {
         },
         {
             id: 'mlflow',
-            icon: <GitBranch size={24} />,
+            icon: <BarChart2 size={24} />,
             label: 'MLflow',
             desc: 'Experiment & Metric Tracking',
             pos: { x: 88, y: 80 },
@@ -125,22 +125,21 @@ const ArchitectureDiagram = () => {
                     key={node.id}
                     onMouseEnter={() => setHoveredNode(node)}
                     onMouseLeave={() => setHoveredNode(null)}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    whileHover={{ scale: 1.05 }}
+                    initial={{ scale: 0, opacity: 0, x: '-50%', y: '-50%' }}
+                    animate={{ scale: 1, opacity: 1, x: '-50%', y: '-50%' }}
+                    whileHover={{ scale: 1.05, x: '-50%', y: '-50%' }}
                     transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.5 }}
                     style={{
                         position: 'absolute',
                         left: `${node.pos.x}%`,
                         top: `${node.pos.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
+                        width: '64px',
+                        height: '64px',
                         zIndex: 10,
                         cursor: 'pointer'
                     }}
                 >
+                    {/* Icon Box - Perfectly centered on node.pos */}
                     <div style={{
                         background: 'var(--bg-card)',
                         border: hoveredNode?.id === node.id ? `2px solid ${node.color}` : '1px solid var(--glass-border)',
@@ -153,12 +152,23 @@ const ArchitectureDiagram = () => {
                         alignItems: 'center',
                         transition: 'all 0.3s ease',
                         backdropFilter: 'blur(12px)',
-                        width: '64px',
-                        height: '64px'
+                        width: '100%',
+                        height: '100%'
                     }}>
                         {node.icon}
                     </div>
-                    <div style={{ marginTop: '0.75rem', textAlign: 'center', width: '120px' }}>
+
+                    {/* Label Container - Positioned below the box bottom, won't affect centering */}
+                    <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: '50%',
+                        marginTop: '0.8rem',
+                        textAlign: 'center',
+                        width: '140px',
+                        transform: 'translateX(-50%)',
+                        pointerEvents: 'none'
+                    }}>
                         <span style={{
                             display: 'block',
                             fontSize: '0.85rem',
