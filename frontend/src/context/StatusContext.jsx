@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_URL } from '../config';
 
 const StatusContext = createContext();
 
@@ -11,7 +12,7 @@ export const StatusProvider = ({ children }) => {
 
     const fetchStatus = async () => {
         try {
-            const res = await fetch('http://localhost:8000/status');
+            const res = await fetch(`${API_URL}/status`);
             const data = await res.json();
             setStatus({
                 pipeline: data.pipeline || 'idle',

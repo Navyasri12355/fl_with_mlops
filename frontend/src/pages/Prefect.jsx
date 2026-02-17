@@ -4,6 +4,7 @@ import { Cpu, Play, Square, ExternalLink, Activity, Database, Clock } from 'luci
 import { useStatus } from '../context/StatusContext';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
+import { API_URL, PREFECT_URL } from '../config';
 
 const Prefect = () => {
     const { status: globalStatus, refreshStatus } = useStatus();
@@ -53,7 +54,7 @@ const Prefect = () => {
 
     const startServer = async () => {
         try {
-            await fetch('http://localhost:8000/start-prefect', { method: 'POST' });
+            await fetch(`${API_URL}/start-prefect`, { method: 'POST' });
             refreshStatus();
         } catch (e) {
             alert("Failed to connect to backend");
@@ -62,7 +63,7 @@ const Prefect = () => {
 
     const stopServer = async () => {
         try {
-            await fetch('http://localhost:8000/stop/prefect', { method: 'POST' });
+            await fetch(`${API_URL}/stop/prefect`, { method: 'POST' });
             refreshStatus();
         } catch (e) {
             alert("Failed to stop server");
@@ -127,7 +128,7 @@ const Prefect = () => {
                     )}
                     {status === 'running' && (
                         <a
-                            href="http://localhost:4200"
+                            href={PREFECT_URL}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-primary"

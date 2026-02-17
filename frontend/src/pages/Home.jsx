@@ -5,6 +5,7 @@ import ArchitectureDiagram from '../components/ArchitectureDiagram';
 import { useStatus } from '../context/StatusContext';
 import { supabase } from '../supabase';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
 
 const itemVariants = {
     hidden: { y: 20, opacity: 0 },
@@ -42,7 +43,7 @@ const Home = () => {
 
     const runPipeline = async () => {
         try {
-            await fetch('http://localhost:8000/run-pipeline', { method: 'POST' });
+            await fetch(`${API_URL}/run-pipeline`, { method: 'POST' });
             refreshStatus();
         } catch (e) {
             alert("Failed to connect to backend");
@@ -51,7 +52,7 @@ const Home = () => {
 
     const stopPipeline = async () => {
         try {
-            await fetch('http://localhost:8000/stop/pipeline', { method: 'POST' });
+            await fetch(`${API_URL}/stop/pipeline`, { method: 'POST' });
             refreshStatus();
         } catch (e) {
             alert("Failed to stop pipeline");
@@ -80,7 +81,7 @@ const Home = () => {
     const handlePipelineCompletion = async () => {
         console.log("Pipeline completion detected, fetching results...");
         try {
-            const res = await fetch('http://localhost:8000/latest-result');
+            const res = await fetch(`${API_URL}/latest-result`);
             const data = await res.json();
             console.log("Latest result data:", data);
 

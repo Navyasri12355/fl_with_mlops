@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { LineChart, Play, Square, ExternalLink, BarChart2, Tag, Layers } from 'lucide-react';
 import { useStatus } from '../context/StatusContext';
+import { API_URL, MLFLOW_URL } from '../config';
 
 const MLflow = () => {
     const { status: globalStatus, refreshStatus } = useStatus();
@@ -9,7 +10,7 @@ const MLflow = () => {
 
     const startServer = async () => {
         try {
-            await fetch('http://localhost:8000/start-mlflow', { method: 'POST' });
+            await fetch(`${API_URL}/start-mlflow`, { method: 'POST' });
             refreshStatus();
         } catch (e) {
             alert("Failed to connect to backend");
@@ -18,7 +19,7 @@ const MLflow = () => {
 
     const stopServer = async () => {
         try {
-            await fetch('http://localhost:8000/stop/mlflow', { method: 'POST' });
+            await fetch(`${API_URL}/stop/mlflow`, { method: 'POST' });
             refreshStatus();
         } catch (e) {
             alert("Failed to stop server");
@@ -83,7 +84,7 @@ const MLflow = () => {
                     )}
                     {status === 'running' && (
                         <a
-                            href="http://localhost:5000"
+                            href={MLFLOW_URL}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="btn-primary"
