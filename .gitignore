@@ -6,3 +6,4 @@ mlruns/
 reports/
 best_model/
 pipeline_logs/
+/*.txt
