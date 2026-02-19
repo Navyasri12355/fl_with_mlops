@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00c6ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0072ff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Central Brain/Node -->
+  <circle cx="50" cy="50" r="15" fill="url(#grad1)" />
+  <path d="M45,45 Q50,35 55,45 T65,55 T50,65 T35,55 T45,45" fill="white" opacity="0.8" />
+  
+  <!-- Outer Nodes -->
+  <circle cx="20" cy="20" r="5" fill="#00c6ff" />
+  <circle cx="80" cy="20" r="5" fill="#00c6ff" />
+  <circle cx="80" cy="80" r="5" fill="#00c6ff" />
+  <circle cx="20" cy="80" r="5" fill="#00c6ff" />
+  <circle cx="50" cy="15" r="5" fill="#0072ff" />
+  <circle cx="50" cy="85" r="5" fill="#0072ff" />
+
+  <!-- Connections -->
+  <line x1="20" y1="20" x2="40" y2="40" stroke="#0072ff" stroke-width="2" opacity="0.6" />
+  <line x1="80" y1="20" x2="60" y2="40" stroke="#0072ff" stroke-width="2" opacity="0.6" />
+  <line x1="80" y1="80" x2="60" y2="60" stroke="#0072ff" stroke-width="2" opacity="0.6" />
+  <line x1="20" y1="80" x2="40" y2="60" stroke="#0072ff" stroke-width="2" opacity="0.6" />
+  <line x1="50" y1="15" x2="50" y2="35" stroke="#00c6ff" stroke-width="2" opacity="0.6" />
+  <line x1="50" y1="85" x2="50" y2="65" stroke="#00c6ff" stroke-width="2" opacity="0.6" />
+</svg>

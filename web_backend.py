@@ -8,7 +8,7 @@ from typing import Dict
 app = FastAPI()
 
 origins = [
-    "https://fl-frontend-navya.vercel.app"
+    "https://mlops-pipeline-fl.vercel.app"
 ]
 
 # Enable CORS for frontend communication
