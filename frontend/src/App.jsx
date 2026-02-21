@@ -16,6 +16,12 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const PublicRoute = ({ children }) => {
+  const { user } = useAuth();
+  if (user) return <Navigate to="/" />;
+  return children;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -24,8 +30,8 @@ function App() {
           <Navigation />
           <main style={{ flexGrow: 1 }}>
             <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               <Route path="/prefect" element={<ProtectedRoute><Prefect /></ProtectedRoute>} />
               <Route path="/mlflow" element={<ProtectedRoute><MLflow /></ProtectedRoute>} />
