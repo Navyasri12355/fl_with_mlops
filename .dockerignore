@@ -1,0 +1,26 @@
+# Local environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# VCS and editor files
+.git/
+.gitignore
+.vscode/
+
+# Logs and run artifacts
+mlruns/
+pipeline_logs/
+*.log
+
+# Frontend app is deployed separately on Vercel
+frontend/
+
+# OS files
+.DS_Store
+Thumbs.db

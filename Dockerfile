@@ -33,4 +33,4 @@ COPY . .
 EXPOSE 8000 5000 4200
 
 # Entry point will be handled by docker-compose
-CMD ["python", "web_backend.py"]
+CMD ["sh", "-c", "uvicorn web_backend:app --host 0.0.0.0 --port ${PORT:-8000}"]
