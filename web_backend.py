@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import subprocess
 import os
 import signal
+import sys
+import shutil
 from typing import Dict
 
 app = FastAPI()
@@ -23,6 +25,19 @@ app.add_middleware(
 # Keep track of running processes
 processes: Dict[str, subprocess.Popen] = {}
 
+
+def get_python_command() -> str:
+    # Use the currently running interpreter so this works in local venvs and containers.
+    return sys.executable
+
+
+def get_prefect_command() -> list:
+    prefect_exe = shutil.which("prefect")
+    if prefect_exe:
+        return [prefect_exe]
+    # Fallback to module invocation if prefect executable isn't on PATH.
+    return [get_python_command(), "-m", "prefect"]
+
 def run_command(name: str, command: list):
     if name in processes and processes[name].poll() is None:
         return {"status": "already running"}
@@ -30,10 +45,11 @@ def run_command(name: str, command: list):
     # Log to a file to help debug
     log_file = open(f"{name}.log", "w")
     
-    # Prepare environment with venv paths
+    # Preserve current environment; prepend local venv if available for local development.
     env = os.environ.copy()
     venv_bin = os.path.abspath(os.path.join("venv", "Scripts" if os.name == 'nt' else "bin"))
-    env["PATH"] = venv_bin + os.pathsep + env.get("PATH", "")
+    if os.path.isdir(venv_bin):
+        env["PATH"] = venv_bin + os.pathsep + env.get("PATH", "")
     env["PYTHONIOENCODING"] = "utf-8"
     
     # On Windows, shell=True with a list can be problematic.
@@ -65,18 +81,15 @@ async def get_status():
 
 @app.post("/run-pipeline")
 async def start_pipeline():
-    python_exe = os.path.join("venv", "Scripts", "python.exe") if os.name == 'nt' else os.path.join("venv", "bin", "python")
-    return run_command("pipeline", [python_exe, "manage_pipeline.py", "run"])
+    return run_command("pipeline", [get_python_command(), "manage_pipeline.py", "run"])
 
 @app.post("/start-mlflow")
 async def start_mlflow():
-    python_exe = os.path.join("venv", "Scripts", "python.exe") if os.name == 'nt' else os.path.join("venv", "bin", "python")
-    return run_command("mlflow", [python_exe, "manage_pipeline.py", "mlflow"])
+    return run_command("mlflow", [get_python_command(), "manage_pipeline.py", "mlflow"])
 
 @app.post("/start-prefect")
 async def start_prefect():
-    prefect_exe = os.path.join("venv", "Scripts", "prefect.exe") if os.name == 'nt' else os.path.join("venv", "bin", "prefect")
-    return run_command("prefect", [prefect_exe, "server", "start"])
+    return run_command("prefect", get_prefect_command() + ["server", "start"])
 
 @app.post("/stop/{name}")
 async def stop_service(name: str):
